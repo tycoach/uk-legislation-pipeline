@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  legislation-etl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: legislation-etl
+    env_file:
+      - ./.env
+    volumes:
+      # Data persistence
+      - legislation_sql_data:/data/sql
+      - legislation_cache:/data/cache
+      - legislation_logs:/data/logs
+      - legislation_checkpoints:/data/checkpoints
+      # Mount source code for development (comment out for production)
+      - ./src:/app/src
+      - ./scripts:/app/scripts
+    ports:
+      - "5432:5432"  # PostgreSQL
+    depends_on:
+      - qdrant
+    environment:
+      - VECTOR_DB_HOST=qdrant
+      - VECTOR_DB_PORT=6333
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U etl_user -d legislation_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 24G
+          cpus: '8'
+    # Use our entrypoint script
+    entrypoint: ["/app/scripts/entrypoint.sh"]
+    # Default command is to run the ETL pipeline
+    command: ["python", "/app/src/main.py"]
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: legislation-qdrant
+    volumes:
+      - legislation_vector_data:/qdrant/storage
+    ports:
+      - "6333:6333"  # REST API
+      - "6334:6334"  # gRPC API
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/collections"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  legislation_sql_data:
+    driver: local
+  legislation_vector_data:
+    driver: local
+  legislation_cache:
+    driver: local
+  legislation_logs:
+    driver: local
+  legislation_checkpoints:
+    driver: local
