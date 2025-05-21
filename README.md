@@ -118,7 +118,9 @@ The pipeline will:
 Use the CLI tool to search and retrieve legislation info:
 
 ```bash
-python src/query.py "your search query"
+python legislation_search.py "financial regulations for small businesses"
+python legislation_search.py -n 6 "tax credits"
+python legislation_search.py --list
 ```
 
 ## Logging and Checkpointing
